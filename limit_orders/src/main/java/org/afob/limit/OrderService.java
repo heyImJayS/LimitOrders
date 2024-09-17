@@ -21,18 +21,22 @@ public class OrderService {
         Order newOrder = new Order(buyOrSell, productId, amount, limit);
         orders.offer(newOrder);
     }
-    public void executeOrders() {
+    public String executeOrders() {
         while(!orders.isEmpty()) {
             Order order= orders.poll();
-            BigDecimal priceInBD= new BigDecimal(order.getAmount());
+            BigDecimal priceInBD= new BigDecimal(order.getLimit());
             if(limitOrderAgent.priceTick(order.getProductId(), priceInBD) == 1 ) {
-                System.out.println(limitOrderAgent.executeOrder(order));
+                return limitOrderAgent.executeOrder(order);
             }else {
                 //Put the current order to the end of the queue
                 //Because in future it might be possible that the price may go down
-                orders.offer(order);
+                synchronized (this) {
+                    orders.offer(order);
+                }
+                return "FAILED TO PLACE ORDER LIMIT DOESN'T MET";
             }
         }
+        return "SOMETHING WENT WRONG";
     }
 
 

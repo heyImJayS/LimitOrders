@@ -17,13 +17,13 @@ public class LimitOrderAgent implements PriceListener {
     private ExecutionClient executorClient;
     public LimitOrderAgent(final ExecutionClient executorClient) {
         this.executorClient= executorClient;
-
     }
 
     @Override
     public int priceTick(String productId, BigDecimal price) {
         try {
-            BigDecimal mktPrice = getCurrentMarketPrice(productId);
+            LiveMarketDataService marketService = new LiveMarketDataServiceImpl();
+            BigDecimal mktPrice = marketService.getCurrentMarketPriceForProduct(productId);
             if(mktPrice.compareTo(price) < 0){
                 return 1;
             }
@@ -42,17 +42,23 @@ public class LimitOrderAgent implements PriceListener {
             ReentrantLock rl = new ReentrantLock();
             rl.lock();
             if(order.getBuyOrSell()){
-                executorClient.buy(order.getProductId(), order.getAmount()) ;
+                try {
+                    executorClient.buy(order.getProductId(), order.getAmount());
+                }catch(ExecutionClient.ExecutionException ex){
+                    //Do nothing
+                }
                 rl.unlock();
-                return "Below Order Successfully Bought.";
+                return "SUCCESSFULLY BOUGHT";
             }else{
-                executorClient.sell(order.getProductId(), order.getAmount());
+                try {
+                    executorClient.buy(order.getProductId(), order.getAmount());
+                }catch(ExecutionClient.ExecutionException ex){
+                    //Do nothing
+                }
                 rl.unlock();
-                return "Below Order Successfully Sold.";
+                return "SUCCESSFULLY SOLD";
             }
 
-        }catch(ExecutionClient.ExecutionException e){
-            System.out.println(e.getMessage());
         }
         catch(Exception e){
             e.printStackTrace();
@@ -61,17 +67,4 @@ public class LimitOrderAgent implements PriceListener {
 
     }
 
-    public BigDecimal getCurrentMarketPrice(String productId) throws Exception{
-        //Here we have to call API/DB anything to get the Market price
-        //Below is the fetched market price of IBM
-        try {
-            if (productId.equalsIgnoreCase("IBM")) {
-                return new BigDecimal(98.02);
-            }
-            return new BigDecimal(1000.09);
-        }catch(Exception e){
-            e.printStackTrace();
-        }
-        throw new Exception("Something went wrong in fetching Market Data");
-    }
 }
